@@ -37,12 +37,20 @@ class TrafficController:
     async def _evaluate_complexity(self, prompt: str, session: aiohttp.ClientSession) -> bool:
         """
         Uses the local Qwen 3B model to decide if the prompt is complex.
+        Lays the foundation for self-improving routing by asking the model to output 
+        a JSON trace of its reasoning before arriving at the final classification.
         Returns True if complex (needs Cursor SDK), False if simple (handled locally).
         """
         triage_prompt = f"""
-        Evaluate the complexity of this software engineering task. 
-        If it requires deep reasoning, writing complex code, multi-file refactoring, or heavy logic, respond with EXACTLY the word "COMPLEX". 
-        If it is a simple question, log reading, or basic web search, respond with EXACTLY the word "SIMPLE".
+        Evaluate the complexity of this software engineering task.
+        First, write a 1-sentence reasoning trace explaining whether the task requires deep reasoning, multi-file refactoring, or heavy logic.
+        Then, output the final classification: "COMPLEX" if it requires heavy logic, or "SIMPLE" if it is a basic question, log reading, or web search.
+        
+        Respond ONLY with a valid JSON object in this exact format:
+        {{
+            "reasoning": "<your 1 sentence explanation>",
+            "complexity": "<COMPLEX or SIMPLE>"
+        }}
         
         Task: {prompt}
         """
@@ -51,14 +59,29 @@ class TrafficController:
             "model": "qwen-3b",
             "messages": [{"role": "user", "content": triage_prompt}],
             "temperature": 0.1,
-            "max_tokens": 10
+            "max_tokens": 100
         }
         
         try:
             async with session.post(f"{self.local_url}/chat/completions", json=payload) as response:
+                import json
                 data = await response.json()
-                content = data["choices"][0]["message"]["content"].strip().upper()
-                return "COMPLEX" in content
+                content = data["choices"][0]["message"]["content"].strip()
+                
+                # Parse the structured JSON response
+                try:
+                    # Clean up potential markdown formatting from the response
+                    if content.startswith("```json"):
+                        content = content[7:-3].strip()
+                    
+                    decision = json.loads(content)
+                    
+                    # Optional: In a production system, you would log decision["reasoning"] 
+                    # into your NVMe telemetry database here for future model fine-tuning!
+                    
+                    return decision.get("complexity", "COMPLEX").upper() == "COMPLEX"
+                except json.JSONDecodeError:
+                    return "COMPLEX" in content.upper()
         except Exception as e:
             print(f"[Triage Error] Failed to evaluate complexity: {e}. Defaulting to COMPLEX.")
             return True
