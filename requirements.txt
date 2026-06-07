@@ -1,0 +1,5 @@
+aiohttp
+routellm
+sentence-transformers
+chromadb
+duckduckgo-search
