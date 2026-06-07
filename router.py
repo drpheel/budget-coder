@@ -2,6 +2,14 @@ import time
 import asyncio
 import aiohttp
 import os
+
+# Override HF Cache path to avoid permission issues
+os.environ["HF_HOME"] = "/home/ameyades/agent_harness/hf_cache"
+
+# Ensure a dummy key exists to bypass basic LiteLLM/OpenAI client validation BEFORE imports
+if "OPENAI_API_KEY" not in os.environ:
+    os.environ["OPENAI_API_KEY"] = "sk-dummy-key"
+
 from routellm.controller import Controller
 from config import LOCAL_MODEL_URL, LOCAL_MODEL_NAME, STRONG_MODEL_NAME
 from telemetry import TelemetryLogger
@@ -16,10 +24,6 @@ class TrafficController:
         
         # Configure LiteLLM (under RouteLLM) to route the weak model to our local Qwen 3B API
         os.environ["OPENAI_API_BASE"] = LOCAL_MODEL_URL
-        
-        # Ensure a dummy key exists to bypass basic LiteLLM client validation if missing
-        if "OPENAI_API_KEY" not in os.environ:
-            os.environ["OPENAI_API_KEY"] = "sk-dummy-key"
             
         try:
             # Integrate routellm package using the Matrix Factorization (mf) router

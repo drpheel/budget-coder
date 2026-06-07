@@ -1,7 +1,12 @@
 import os
 
+# Set Hugging Face cache absolute path at the very top
+os.environ["HF_HOME"] = "/home/ameyades/agent_harness/hf_cache"
+os.environ["TRANSFORMERS_CACHE"] = "/home/ameyades/agent_harness/hf_cache"
+
 # Hardware-constrained NVMe paths
-NVME_BASE_PATH = os.environ.get("NVME_BASE_PATH", "/mnt/nvme")
+# Defaulting to local directories since /mnt/nvme requires root/sudo access
+NVME_BASE_PATH = os.environ.get("NVME_BASE_PATH", "/home/ameyades/agent_harness/nvme_mock")
 NVME_DB_PATH = os.path.join(NVME_BASE_PATH, "context_db")
 TELEMETRY_PATH = os.path.join(NVME_BASE_PATH, "router_telemetry.jsonl")
 

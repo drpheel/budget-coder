@@ -4,6 +4,9 @@ import chromadb
 from sentence_transformers import SentenceTransformer
 from config import NVME_DB_PATH
 
+# Override HF Cache path to avoid permission issues
+os.environ["HF_HOME"] = "/home/ameyades/agent_harness/hf_cache"
+
 class ContextEngine:
     def __init__(self, db_path: str = NVME_DB_PATH):
         """

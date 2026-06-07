@@ -1,0 +1,5 @@
+venv/
+hf_cache/
+nvme_mock/
+__pycache__/
+*.pyc
