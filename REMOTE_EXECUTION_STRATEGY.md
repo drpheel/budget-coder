@@ -114,4 +114,4 @@ async def _call_cursor_sdk(self, prompt: str, target_machine: str = "local") -> 
    - **Triage Router:** Complex task.
    - **Execution:** Router calls `_call_cursor_sdk(prompt, target_machine="staging")`. The Cursor Cloud Agent spins up, reads `db_pool.js` over the SSHFS mount, writes the refactored code directly to the remote server, and closes the connection.
 
-This creates a master node (the $20/month Jetson) that can administer, test, and completely rewrite codebases across an entire fleet of remote servers.
+This creates a master node (the Jetson Nano) that maximizes the value of your $20/month Cursor subscription by administering, testing, and completely rewriting codebases across an entire fleet of remote servers.
