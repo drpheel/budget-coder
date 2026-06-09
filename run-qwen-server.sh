@@ -30,8 +30,9 @@ fi
 echo "Loading 32k context with full GPU offload (may OOM on 8GB Jetson)..."
 echo "Starting OpenAI-compatible HTTP server on http://localhost:8080/v1"
 # -fit on will reduce layers/context if 32k + ngl 99 does not fit
-exec "$BIN" -m "$MODEL" -fit on -ngl 99 -c 32768 -np 1 \
-  -ctk q4_0 -ctv q4_0 \
+exec "$BIN" -m "$MODEL" -fit on -ngl 99 -c 16384 -np 1 \
+  -ctk q8_0 -ctv q8_0 \
   -b 256 \
+  --chat-template chatml \
   --host 127.0.0.1 --port 8080 \
   "$@"

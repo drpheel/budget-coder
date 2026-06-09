@@ -80,58 +80,77 @@ def execute_internal_tool(name: str, arguments: dict) -> str:
             
     return f"Unknown tool: {name}"
 
+def get_qwen_system_prompt(base_prompt: str) -> str:
+    return f"""{base_prompt}
+
+You have access to the following tools:
+1. internal_read_file(path: str): Reads the contents of a file to inspect code or config.
+2. internal_run_command(command: str): Runs a diagnostic shell command (e.g., pip check, ls, cat).
+
+To use a tool, you MUST output a JSON block like this:
+```json
+{{
+  "tool": "tool_name",
+  "arguments": {{
+    "arg_name": "arg_value"
+  }}
+}}
+```
+
+Wait for the tool result before continuing. If you don't need to use a tool, just output your final response."""
+
 async def run_qwen_agent(system_prompt: str, user_prompt: str) -> str:
     messages = [
-        {"role": "system", "content": system_prompt},
+        {"role": "system", "content": get_qwen_system_prompt(system_prompt)},
         {"role": "user", "content": user_prompt}
     ]
     
-    for _ in range(10): 
+    for i in range(10): 
         try:
             response = await openai_client.chat.completions.create(
                 model="qwen2.5-coder-3b-instruct",
                 messages=messages,
-                tools=QWEN_TOOLS,
-                temperature=0.2
+                temperature=0.2,
+                max_tokens=4096
             )
         except Exception as e:
             return f"Error communicating with Qwen 3B (is llama-server running?): {str(e)}"
             
         message = response.choices[0].message
+        content = message.content or ""
+        print(f"--- Iteration {i} ---")
+        print(f"Model output: {content}")
         
-        # Convert message to dict format expected by the API for subsequent calls
-        message_dict = {"role": message.role, "content": message.content}
-        if message.tool_calls:
-            message_dict["tool_calls"] = [
-                {
-                    "id": t.id,
-                    "type": t.type,
-                    "function": {
-                        "name": t.function.name,
-                        "arguments": t.function.arguments
-                    }
-                } for t in message.tool_calls
-            ]
-        messages.append(message_dict)
+        messages.append({"role": "assistant", "content": content})
         
-        if not message.tool_calls:
-            return message.content or "No response content."
-            
-        for tool_call in message.tool_calls:
-            function_name = tool_call.function.name
+        # Parse manual tool call
+        if "```json" in content and '"tool"' in content:
             try:
-                arguments = json.loads(tool_call.function.arguments)
-            except json.JSONDecodeError:
-                arguments = {}
+                # Extract the JSON block
+                json_str = content.split("```json")[1].split("```")[0].strip()
+                tool_call = json.loads(json_str)
+                function_name = tool_call.get("tool")
+                arguments = tool_call.get("arguments", {})
                 
-            tool_result = execute_internal_tool(function_name, arguments)
-            
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tool_call.id,
-                "name": function_name,
-                "content": tool_result
-            })
+                print(f"Calling tool: {function_name} with args: {arguments}")
+                tool_result = execute_internal_tool(function_name, arguments)
+                print(f"Tool result: {tool_result}")
+                
+                messages.append({
+                    "role": "user",
+                    "content": f"Tool Result:\n{tool_result}"
+                })
+                continue # Loop again to let the model process the result
+            except Exception as e:
+                print(f"Error parsing tool call: {e}")
+                messages.append({
+                    "role": "user",
+                    "content": f"Error parsing tool call: {str(e)}. Make sure to output valid JSON."
+                })
+                continue
+                
+        # If no tool call, we assume it's the final answer
+        return content
 
     return "Agent reached maximum iterations without completing the task."
 
