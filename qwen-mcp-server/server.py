@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import subprocess
+import logging
 from typing import Optional, List, Dict, Any
 
 from mcp.server import Server, NotificationOptions
@@ -9,6 +10,15 @@ from mcp.server.models import InitializationOptions
 import mcp.server.stdio
 import mcp.types as types
 from openai import AsyncOpenAI
+
+# Configure logging to NVMe mock directory
+LOG_FILE = "/home/ameyades/agent_harness/nvme_mock/mcp_server.log"
+os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
+logging.basicConfig(
+    filename=LOG_FILE,
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 server = Server("qwen-mcp-server")
 
@@ -51,6 +61,7 @@ QWEN_TOOLS = [
 ]
 
 def execute_internal_tool(name: str, arguments: dict) -> str:
+    logging.info(f"Internal Qwen Tool Called: {name} | Args: {arguments}")
     if name == "internal_read_file":
         path = arguments.get("path")
         try:
@@ -100,6 +111,7 @@ To use a tool, you MUST output a JSON block like this:
 Wait for the tool result before continuing. If you don't need to use a tool, just output your final response."""
 
 async def run_qwen_agent(system_prompt: str, user_prompt: str) -> str:
+    logging.info(f"Starting Qwen Agent | System Prompt: {system_prompt[:100]}... | User Prompt: {user_prompt[:100]}...")
     messages = [
         {"role": "system", "content": get_qwen_system_prompt(system_prompt)},
         {"role": "user", "content": user_prompt}
@@ -249,6 +261,8 @@ async def handle_call_tool(
 ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
     if not arguments:
         arguments = {}
+
+    logging.info(f"Cursor MCP Tool Called: {name} | Args: {arguments}")
 
     # Low-level tools
     if name == "remote_read_file":
